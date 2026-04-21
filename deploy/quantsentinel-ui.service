@@ -1,0 +1,19 @@
+[Unit]
+Description=QuantSentinel Streamlit Dashboard
+After=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/QuantSentinel
+Environment="PATH=/home/ubuntu/QuantSentinel/venv/bin"
+EnvironmentFile=/home/ubuntu/QuantSentinel/.env
+ExecStart=/home/ubuntu/QuantSentinel/venv/bin/streamlit run ui/dashboard.py --server.port=8501 --server.headless=true --server.address=0.0.0.0
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=quantsentinel-ui
+
+[Install]
+WantedBy=multi-user.target

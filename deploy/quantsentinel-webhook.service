@@ -1,0 +1,19 @@
+[Unit]
+Description=QuantSentinel Upstox Webhook Server
+After=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/QuantSentinel
+Environment="PATH=/home/ubuntu/QuantSentinel/venv/bin"
+EnvironmentFile=/home/ubuntu/QuantSentinel/.env
+ExecStart=/home/ubuntu/QuantSentinel/venv/bin/python webhook_server.py
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=quantsentinel-webhook
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,20 @@
+[Unit]
+Description=QuantSentinel AI Trading Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/QuantSentinel
+Environment="PATH=/home/ubuntu/QuantSentinel/venv/bin"
+EnvironmentFile=/home/ubuntu/QuantSentinel/.env
+ExecStart=/home/ubuntu/QuantSentinel/venv/bin/python main.py --bot-only
+Restart=on-failure
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=quantsentinel
+
+[Install]
+WantedBy=multi-user.target
