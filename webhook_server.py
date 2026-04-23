@@ -39,8 +39,11 @@ def token_webhook():
 
     log.info(f"Webhook received: message_type={data.get('message_type')}")
 
-    if data.get("message_type") == "access_token":
-        token = data.get("access_token")
+    # Upstox might not send message_type, so we directly look for access_token
+    token = data.get("access_token")
+    if token or data.get("message_type") == "access_token":
+        if not token:
+            token = data.get("access_token") # Fallback to same key if checking via msg type
         if not token:
             return jsonify({"status": "error", "message": "No token"}), 400
 
@@ -78,6 +81,14 @@ def token_status():
 
 if __name__ == "__main__":
     port = int(os.getenv("WEBHOOK_PORT", 5000))
-    log.info(f"Webhook server starting on port {port}")
-    log.info(f"Token endpoint: POST http://localhost:{port}/webhook/token")
-    app.run(host="0.0.0.0", port=port, debug=False)
+    cert_file = "cert.pem"
+    key_file = "key.pem"
+    
+    if os.path.exists(cert_file) and os.path.exists(key_file):
+        log.info(f"Webhook server starting on port {port} with HTTPS (SSL enabled)")
+        log.info(f"Token endpoint: POST https://localhost:{port}/webhook/token")
+        app.run(host="0.0.0.0", port=port, debug=False, ssl_context=(cert_file, key_file))
+    else:
+        log.info(f"Webhook server starting on port {port} with HTTP (No SSL)")
+        log.info(f"Token endpoint: POST http://localhost:{port}/webhook/token")
+        app.run(host="0.0.0.0", port=port, debug=False)

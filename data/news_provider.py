@@ -245,7 +245,6 @@ def _fetch_newsdata(query: str):
         log.debug(f"NewsData error: {e}")
         return []
 
-
 def _fetch_marketaux(query: str):
     if not MARKETAUX_API_KEY:
         return []
@@ -263,6 +262,33 @@ def _fetch_marketaux(query: str):
         return r.json().get("data", [])
     except Exception as e:
         log.debug(f"Marketaux error: {e}")
+        return []
+
+
+def _fetch_yfinance(symbol: str):
+    try:
+        import yfinance as yf
+        ticker = yf.Ticker(symbol)
+        news = ticker.news
+        results = []
+        for item in news:
+            content = item.get("content", item) # accommodate diff yf versions
+            url_data = content.get("clickThroughUrl", {}) or content.get("canonicalUrl", {})
+            url = url_data.get("url", "")
+            if not url: url = content.get("link", "")
+            
+            provider = content.get("provider", {})
+            source = provider.get("displayName", "Yahoo Finance") if isinstance(provider, dict) else "Yahoo Finance"
+            
+            results.append({
+                "title": content.get("title", ""),
+                "source": source,
+                "url": url,
+                "publishedAt": content.get("pubDate") or content.get("providerPublishTime"),
+            })
+        return results
+    except Exception as e:
+        log.debug(f"Yahoo Finance error for {symbol}: {e}")
         return []
 
 
@@ -284,6 +310,8 @@ def get_news_for_stock(symbol: str, company_name: str = None):
         raw_articles += _fetch_newsapi(q)
         raw_articles += _fetch_newsdata(q)
         raw_articles += _fetch_marketaux(q)
+        
+    raw_articles += _fetch_yfinance(symbol)
 
     # Inside get_news_for_stock(), add RSS sources:
     for feed_name, url in RSS_FEEDS.items():

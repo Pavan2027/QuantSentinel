@@ -142,6 +142,18 @@ def _pnl_class(val: float) -> str:
     return "pos" if val > 0 else ("neg" if val < 0 else "neu")
 
 
+def _utc_to_ist(utc_str: str) -> str:
+    if not utc_str:
+        return "—"
+    try:
+        dt = datetime.fromisoformat(utc_str.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=pytz.UTC)
+        return dt.astimezone(IST).strftime("%Y-%m-%d %H:%M")
+    except Exception:
+        return utc_str[:16].replace("T", " ")
+
+
 def _get_portfolio():
     try:
         from execution.paper_trader import PaperTrader
@@ -377,7 +389,7 @@ def render_signal_feed():
 
     rows = []
     for s in signals:
-        ts = s["created_at"][:16].replace("T", " ") if s.get("created_at") else "—"
+        ts = _utc_to_ist(s.get("created_at", ""))
         sig_icon = {"BUY": "🟢 BUY", "SELL": "🔴 SELL", "HOLD": "⚪ HOLD"}.get(
             s.get("signal", "HOLD"), s.get("signal", "HOLD")
         )
@@ -412,7 +424,7 @@ def render_activity_log():
 
     log_html = ""
     for a in activities:
-        ts  = a.get("created_at", "")[:16].replace("T", " ")
+        ts  = _utc_to_ist(a.get("created_at", ""))
         msg = a.get("message", "")
         lvl = a.get("level", "INFO")
         log_html += (
@@ -453,6 +465,20 @@ def render_sidebar():
             except Exception as e:
                 st.error(f"Cycle failed: {e}")
 
+        if st.button("Request Upstox Token", width='stretch'):
+            try:
+                from execution.upstox_auth import request_token_v3, is_token_valid
+                if is_token_valid():
+                    st.success("✅ Token is already valid for today!")
+                else:
+                    with st.spinner("Ping sent to Upstox! Please check your WhatsApp/Phone to approve..."):
+                        token = request_token_v3()
+                        st.success(f"✅ Token secured! [{token[:10]}...]")
+            except TimeoutError:
+                st.error("❌ Token request timed out after 10 minutes.")
+            except Exception as e:
+                st.error(f"❌ Error: {e}")
+
         st.markdown("---")
         st.markdown("### ⚠️ Danger Zone")
         if st.checkbox("Enable reset"):
@@ -483,10 +509,8 @@ def render_sidebar():
 # MAIN
 # =============================================================================
 
-def main():
-    render_sidebar()
-    render_header()
-
+@st.fragment(run_every="30s")
+def render_live_data():
     portfolio, realized = _get_portfolio()
 
     render_risk_and_portfolio(portfolio, realized)
@@ -500,19 +524,17 @@ def main():
         render_signal_feed()
     with col_log:
         render_activity_log()
-
-    # Auto-refresh via meta tag (Streamlit's st.rerun loop)
-    refresh_secs = 30
-    st.markdown(
-        f'<meta http-equiv="refresh" content="{refresh_secs}">',
-        unsafe_allow_html=True,
-    )
+        
     st.markdown(
         f'<div style="text-align:right;color:#334155;font-size:0.7rem;margin-top:20px">'
-        f'Auto-refreshing every {refresh_secs}s | QuantSentinel Paper Trading</div>',
+        f'Live data updating automatically | QuantSentinel Paper Trading</div>',
         unsafe_allow_html=True,
     )
 
+def main():
+    render_sidebar()
+    render_header()
+    render_live_data()
 
 if __name__ == "__main__":
     main()
