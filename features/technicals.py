@@ -126,7 +126,7 @@ def normalize_rsi(rsi_val: float) -> float:
         return 0.15   # deeply oversold — risk of further drop
     if rsi_val < 30:
         return 0.40   # oversold — slight bullish lean
-    if rsi_val < 50:
+    if rsi_val < 52:  # Optimized from 50
         return 0.80   # healthy recovery zone — bullish
     if rsi_val < 65:
         return 0.65   # neutral to slightly bullish (trending stocks sit here)

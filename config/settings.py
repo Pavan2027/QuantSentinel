@@ -77,10 +77,10 @@ NEWS_REFRESH_HOURS           = int(os.getenv("NEWS_REFRESH_HOURS", 6))
 # =============================================================================
 # STOCK UNIVERSE FILTERS
 # =============================================================================
-MIN_STOCK_PRICE_INR     = 100.0      # ₹ minimum price filter
+MIN_STOCK_PRICE_INR     = 30.0       # ₹ minimum price filter
 MIN_30D_ADV_CRORE       = 1.0        # ₹1 Crore minimum average daily value
-MAX_UNIVERSE_SIZE       = 300        # hard cap on stocks to evaluate per cycle
-MAX_SMALLCAP_FRACTION   = 0.3        # max 30% of universe from Smallcap 100
+MAX_UNIVERSE_SIZE       = 400        # hard cap on stocks to evaluate per cycle
+MAX_SMALLCAP_FRACTION   = 0.35       # max 35% of universe from Smallcap 100
 
 
 # =============================================================================
@@ -106,7 +106,9 @@ CASH_RED_THRESH         = 0.20   # cash < 20% of starting capital → RED
 # =============================================================================
 # SCHEDULER SETTINGS
 # =============================================================================
-CYCLE_INTERVAL_HOURS    = 0.5
-MARKET_OPEN_IST         = "09:30"
-MARKET_CLOSE_IST        = "15:00"   # stop new signals 30min before close
+# CYCLE_INTERVAL_MINUTES  = 30   # 30-minute cycles instead of 1 hour
+# CYCLE_INTERVAL_HOURS    = CYCLE_INTERVAL_MINUTES / 60.0
+CYCLE_INTERVAL_HOURS    = 1
+MARKET_OPEN_IST         = "09:20"
+MARKET_CLOSE_IST        = "15:25"   # stop new signals 5min before close
 MARKET_TIMEZONE         = "Asia/Kolkata"

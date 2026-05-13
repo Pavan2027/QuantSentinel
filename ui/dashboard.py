@@ -160,34 +160,69 @@ def _get_portfolio():
         import yfinance as yf
         trader = PaperTrader(initial_capital=PAPER_CAPITAL_INR)
         
+        todays_pnl = 0.0
         # Fetch live prices for all open positions in one batch call
         if trader.positions:
             symbols = [f"{sym}.NS" for sym in trader.positions.keys()]
             try:
+                # Use 5d history to ensure we have yesterday's closing price
                 tickers = yf.download(
-                    symbols, period="1d", interval="5m",
+                    symbols, period="5d", interval="1d",
                     progress=False, auto_adjust=True
                 )
                 prices = {}
-                for sym in trader.positions.keys():
+                from datetime import date
+                today_str = date.today().isoformat()
+                
+                for sym, pos in trader.positions.items():
                     try:
                         col = f"{sym}.NS"
                         if ("Close", col) in tickers.columns:
                             val = tickers["Close"][col].dropna().iloc[-1]
+                            prev = tickers["Close"][col].dropna().iloc[-2] if len(tickers["Close"][col].dropna()) > 1 else val
                         else:
                             val = tickers["Close"].dropna().iloc[-1]
+                            prev = tickers["Close"].dropna().iloc[-2] if len(tickers["Close"].dropna()) > 1 else val
+                            
                         prices[sym] = float(val)
+                        
+                        # Today's Return Logic
+                        if pos.entry_date == today_str:
+                            todays_pnl += pos.qty * (float(val) - pos.avg_entry_price)
+                        else:
+                            todays_pnl += pos.qty * (float(val) - float(prev))
                     except Exception:
-                        prices[sym] = trader.positions[sym].avg_entry_price
+                        prices[sym] = pos.avg_entry_price
             except Exception:
                 prices = {
-                    sym: trader.positions[sym].avg_entry_price
-                    for sym in trader.positions
+                    sym: pos.avg_entry_price
+                    for sym, pos in trader.positions.items()
                 }
         else:
             prices = {}
             
-        return trader.get_portfolio_summary(prices), trader.get_realized_pnl()
+        summary = trader.get_portfolio_summary(prices)
+        
+        # Calculate Realized PnL strictly from today's executed SELL orders
+        realized_today = 0.0
+        try:
+            from utils.db import get_conn
+            from datetime import date
+            with get_conn() as conn:
+                today_start = date.today().isoformat() + "T00:00:00"
+                rows = conn.execute(
+                    "SELECT pnl FROM trades WHERE action='SELL' AND pnl IS NOT NULL AND created_at >= ?", 
+                    (today_start,)
+                ).fetchall()
+                realized_today = sum(r["pnl"] for r in rows)
+        except Exception:
+            pass
+            
+        summary["todays_pnl"] = todays_pnl + realized_today
+        # Calculate today's percent return relative to portfolio size
+        summary["todays_return_pct"] = (summary["todays_pnl"] / summary["total_value"]) * 100 if summary["total_value"] > 0 else 0
+        
+        return summary, trader.get_realized_pnl()
     except Exception as e:
         return None, None
 
@@ -307,17 +342,29 @@ def render_risk_and_portfolio(portfolio, realized):
             rpnl    = realized["realized_pnl"] if realized else 0
             win_rt  = realized["win_rate"] if realized else 0
             trades  = realized["total_trades"] if realized else 0
+            
+            t_pnl   = portfolio.get("todays_pnl", 0.0)
+            t_pct   = portfolio.get("todays_return_pct", 0.0)
 
-            c1, c2, c3, c4, c5, c6 = st.columns(6)
-            cards = [
+            c1, c2, c3, c4 = st.columns(4)
+            cards_top = [
                 (c1, "Total Value",    _fmt_inr(portfolio["total_value"]),  "neu"),
-                (c2, "Cash",          _fmt_inr(portfolio["cash"]),          "neu"),
-                (c3, "Invested",      _fmt_inr(portfolio["invested"]),      "neu"),
-                (c4, "Total Return",  _fmt_pct(ret_pct),  _pnl_class(ret_pct)),
-                (c5, "Unrealized PnL",_fmt_inr(upnl),    _pnl_class(upnl)),
-                (c6, "Realized PnL",  _fmt_inr(rpnl),    _pnl_class(rpnl)),
+                (c2, "Total Return",   _fmt_pct(ret_pct),  _pnl_class(ret_pct)),
+                (c3, "Today's Return", _fmt_pct(t_pct),    _pnl_class(t_pct)),
+                (c4, "Today's PnL",    _fmt_inr(t_pnl),    _pnl_class(t_pnl)),
             ]
-            for col, lbl, val, cls in cards:
+            for col, lbl, val, cls in cards_top:
+                with col:
+                    st.markdown(_card(lbl, val, cls), unsafe_allow_html=True)
+                    
+            c1, c2, c3, c4 = st.columns(4)
+            cards_mid = [
+                (c1, "Invested",       _fmt_inr(portfolio["invested"]),      "neu"),
+                (c2, "Cash",           _fmt_inr(portfolio["cash"]),          "neu"),
+                (c3, "Unrealized PnL", _fmt_inr(upnl),    _pnl_class(upnl)),
+                (c4, "Realized PnL",   _fmt_inr(rpnl),    _pnl_class(rpnl)),
+            ]
+            for col, lbl, val, cls in cards_mid:
                 with col:
                     st.markdown(_card(lbl, val, cls), unsafe_allow_html=True)
 

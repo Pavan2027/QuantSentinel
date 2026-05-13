@@ -10,12 +10,16 @@ import pytz
 
 IST = pytz.timezone("Asia/Kolkata")
 
-# NSE trading session (IST)
+# NSE physical trading session (IST)
 MARKET_OPEN  = time(9, 15)
 MARKET_CLOSE = time(15, 30)
 
-# Signal generation window — stop 30 min before close to avoid end-of-day noise
-SIGNAL_CUTOFF = time(15, 0)
+# Bot trading window (read from settings.py)
+from config.settings import MARKET_OPEN_IST, MARKET_CLOSE_IST
+_op_h, _op_m = map(int, MARKET_OPEN_IST.split(':'))
+_cl_h, _cl_m = map(int, MARKET_CLOSE_IST.split(':'))
+BOT_START = time(_op_h, _op_m)
+SIGNAL_CUTOFF = time(_cl_h, _cl_m)
 
 # -----------------------------------------------------------------------------
 # NSE Holidays 2025
@@ -90,7 +94,7 @@ def is_signal_window_open(check_dt: datetime = None) -> bool:
     if not is_trading_day(check_dt.date()):
         return False
     current_time = check_dt.time().replace(tzinfo=None)
-    return MARKET_OPEN <= current_time <= SIGNAL_CUTOFF
+    return BOT_START <= current_time <= SIGNAL_CUTOFF
 
 
 def next_market_open() -> datetime:

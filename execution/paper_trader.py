@@ -108,6 +108,14 @@ class PaperTrader:
             rows = conn.execute("SELECT * FROM positions").fetchall()
             self.positions: dict[str, PaperPosition] = {}
             for r in rows:
+                risk_state = r["risk_state_at_entry"] if "risk_state_at_entry" in r.keys() else "GREEN"
+                
+                # CRITICAL: Reconstruct the highest price from the saved trailing stop to prevent stop-loss downgrades on reboot
+                from strategy.scoring import TRAILING_STOP_DISTANCE_PCT
+                trail_dist = TRAILING_STOP_DISTANCE_PCT.get(risk_state, 0.03)
+                inferred_highest = r["trailing_stop"] / (1 - trail_dist)
+                highest_price = max(r["avg_entry_price"], inferred_highest)
+                
                 self.positions[r["symbol"]] = PaperPosition(
                     symbol=r["symbol"],
                     qty=r["qty"],
@@ -116,8 +124,8 @@ class PaperTrader:
                     stop_loss=r["stop_loss"],
                     take_profit=r["take_profit"],
                     trailing_stop=r["trailing_stop"],
-                    risk_state=r["risk_state_at_entry"] if "risk_state_at_entry" in r.keys() else "GREEN",
-                    highest_price=r["avg_entry_price"],
+                    risk_state=risk_state,
+                    highest_price=highest_price,
                 )
 
     def _save_cash(self):

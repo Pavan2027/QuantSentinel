@@ -56,9 +56,9 @@ NIFTY_NEXT_50 = [
 NIFTY_100 = NIFTY_50 + NIFTY_NEXT_50
 
 # =============================================================================
-# MIDCAP 100 — Growth exposure, YELLOW/GREEN only
+# MIDCAP 150 — Growth exposure, YELLOW/GREEN only
 # =============================================================================
-MIDCAP_100 = [
+MIDCAP_150 = [
     "ABCAPITAL", "ABFRL", "ACC", "ALKEM", "APLAPOLLO",
     "ASTRAL", "ATUL", "AUBANK", "BALKRISIND", "BANDHANBNK",
     "BATAINDIA", "BHARATFORG", "BHEL", "BIOCON", "CANFINHOME",
@@ -79,12 +79,22 @@ MIDCAP_100 = [
     "SYNGENE", "TATACHEM", "TATACOMM", "TATAELXSI", "TATVA",
     "THERMAX", "TIMKEN", "TORNTPOWER", "TRIDENT", "UNIONBANK",
     "UPL", "VOLTAS", "WHIRLPOOL", "ZEEL", "3MINDIA",
+    "IPCALAB", "APOLLOTYRE", "ASHOKLEY", "AIAENG", "BAYERCROP",
+    "BEML", "BRIGADE", "CASTROLIND", "CUB", "COCHINSHIP",
+    "CYIENT", "FACT", "FIVESTAR", "FORTIS", "GLENMARK",
+    "GMRINFRA", "GODREJIND", "HINDCOPPER", "HUDCO", "IIFL",
+    "INDIANB", "IRB", "ITI", "JSL", "KALYANKJIL",
+    "KARURVYSYA", "LALPATHLAB", "MAHABANK", "NATIONALUM", "NBCC",
+    "NH", "NIACL", "PNBHOUSING", "RBLBANK", "RVNL",
+    "SKFINDIA", "SUMICHEM", "SUVENPHAR", "TTML", "UCOBANK",
+    "VGUARD", "WELCORP", "ZFCVINDIA", "AETHER", "ANANDRATHI",
+    "ASAHIINDIA", "ASTERDM", "BDL", "BOMDYEING", "CEATLTD"
 ]
 
 # =============================================================================
-# SMALLCAP 50 — Higher alpha potential, GREEN only
+# SMALLCAP 100 — Higher alpha potential, GREEN only
 # =============================================================================
-SMALLCAP_50 = [
+SMALLCAP_100 = [
     "AARTIIND", "AFFLE", "AJANTPHARM", "ANGELONE", "APTUS",
     "BSOFT", "BLS", "CAMPUS", "CAMS", "CDSL",
     "CENTURYPLY", "CESC", "CLEAN", "DATAPATTNS", "ECLERX",
@@ -95,12 +105,22 @@ SMALLCAP_50 = [
     "NAM-INDIA", "OLECTRA", "POONAWALLA", "RADICO", "RATEGAIN",
     "ROUTE", "SAPPHIRE", "SOLARINDS", "SJVN", "SUZLON",
     "SWIGGY", "TIINDIA", "TRIVENI", "USHAMART", "ZENSARTECH",
+    "AMBER", "BSE", "CANBK", "CAPLIPOINT", "CERA",
+    "CHALET", "CHEMPLASTS", "CHENNPETRO", "CIGNITITEC", "CITYUNION",
+    "CRAFTISMAN", "CSBBANK", "DCBBANK", "DCMSHRIRAM", "ECLERX",
+    "EQUITASBNK", "ERIS", "FINPIPE", "GARFIBRES", "GODFRYPHLP",
+    "GOKEX", "GREENLAM", "HGS", "HIKAL", "HIL",
+    "HLEGLAS", "HOMEFIRST", "ICRA", "IDFC", "IFCI",
+    "IIFLWAM", "INDIGOPNTS", "IONEXCHANG", "JAMNAAUTO", "JSLHISAR",
+    "JTEKTINDIA", "JUSTDIAL", "JYOTHYLAB", "KEC", "KNRCON",
+    "LATENTVIEW", "MAHSEAMLES", "MARKSANS", "MFL", "MINDACORP",
+    "NATCOPHARM", "NAVA", "NAZARA", "NCC", "NEOGEN"
 ]
 
 # =============================================================================
 # COMBINED LISTS
 # =============================================================================
-ALL_STOCKS = NIFTY_100 + MIDCAP_100 + SMALLCAP_50
+ALL_STOCKS = NIFTY_100 + MIDCAP_150 + SMALLCAP_100
 
 
 # =============================================================================
@@ -111,21 +131,21 @@ def get_raw_universe(risk_state: str = "GREEN") -> list[str]:
     """
     Return the candidate pool for a given risk state.
 
-    GREEN  → All 250 stocks
-    YELLOW → NIFTY 100 + top 50 midcaps (150)
-    RED    → NIFTY 100 only (100)
+    GREEN  → All 350 stocks
+    YELLOW → NIFTY 100 + top 125 midcaps (225)
+    RED    → NIFTY 100 + top 50 midcaps (150)
     """
     if risk_state == "RED":
-        pool = list(NIFTY_100)
+        pool = list(NIFTY_100) + MIDCAP_150[:50]
         log.info(f"Universe: RED state — NIFTY 100 only ({len(pool)} stocks)")
         return pool
 
     if risk_state == "YELLOW":
-        pool = list(NIFTY_100) + MIDCAP_100[:50]
+        pool = list(NIFTY_100) + MIDCAP_150[:125]
         log.info(f"Universe: YELLOW state — {len(pool)} stocks")
         return pool
 
-    full = list(ALL_STOCKS)[:MAX_UNIVERSE_SIZE]
+    full = list(ALL_STOCKS)
     log.info(f"Universe: GREEN state — {len(full)} stocks")
     return full
 
@@ -176,8 +196,8 @@ def get_tier(symbol: str) -> str:
     sym = symbol.upper().replace(".NS", "")
     if sym in NIFTY_100:
         return "largecap"
-    if sym in MIDCAP_100:
+    if sym in MIDCAP_150:
         return "midcap"
-    if sym in SMALLCAP_50:
+    if sym in SMALLCAP_100:
         return "smallcap"
     return "unknown"

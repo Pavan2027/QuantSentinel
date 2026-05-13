@@ -65,29 +65,29 @@ MAX_HOLD_DAYS = {
 
 # Stop loss percentage per risk state (tighter in stressed states)
 STOP_LOSS_PCT = {
-    "GREEN":  0.08,   # 8% stop loss
-    "YELLOW": 0.06,   # 6%
-    "RED":    0.04,   # 4%
+    "GREEN":  0.06,   # Optimized: 6.00%
+    "YELLOW": 0.05,
+    "RED":    0.04,
 }
 
 # Take profit target per risk state
 TAKE_PROFIT_PCT = {
-    "GREEN":  0.18,   # 18% target
-    "YELLOW": 0.12,   # 12%
-    "RED":    0.07,   # 7%
+    "GREEN":  0.0589, # Optimized: 5.89% target
+    "YELLOW": 0.05,
+    "RED":    0.04,
 }
 
 # Trailing stop: activated when price is this far above entry
 TRAILING_STOP_ACTIVATION_PCT = {
-    "GREEN":  0.06,
-    "YELLOW": 0.04,
-    "RED":    0.03,
+    "GREEN":  0.0712, # Optimized: 7.12%
+    "YELLOW": 0.05,
+    "RED":    0.04,
 }
 
 TRAILING_STOP_DISTANCE_PCT = {
-    "GREEN":  0.04,
-    "YELLOW": 0.03,
-    "RED":    0.02,
+    "GREEN":  0.0117, # Optimized: 1.17% (extremely tight)
+    "YELLOW": 0.01,
+    "RED":    0.01,
 }
 
 
@@ -179,13 +179,14 @@ def get_top_picks(ranked_stocks: list[dict],
     Args:
         ranked_stocks: Output of score_all_stocks()
         risk_state:    Current risk state
-        n:             Max picks (defaults: GREEN=5, YELLOW=4, RED=3)
+        n:             Max picks (defaults: GREEN=8, YELLOW=4, RED=2)
 
     Returns:
         Filtered and capped list of top picks
     """
     if n is None:
-        n = {"GREEN": 5, "YELLOW": 4, "RED": 3}.get(risk_state, 5)
+        from risk.exposure_limits import MAX_POSITIONS
+        n = MAX_POSITIONS.get(risk_state, 5)
 
     threshold = BUY_THRESHOLD[risk_state]
     eligible = [s for s in ranked_stocks if s["score"] >= threshold]

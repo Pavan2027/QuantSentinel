@@ -66,7 +66,8 @@ def get_price_data(symbol: str, lookback_days: int = None) -> pd.DataFrame | Non
         return df
 
     # --- Fetch from yfinance ---
-    end_date   = date.today()
+    # Fix: yfinance end date is EXCLUSIVE. We must add 1 day to fetch today's live price.
+    end_date   = date.today() + timedelta(days=1)
     start_date = end_date - timedelta(days=lookback_days + 10)  # +10 buffer for weekends/holidays
 
     log.info(f"Fetching price data: {ticker} ({lookback_days}d)")

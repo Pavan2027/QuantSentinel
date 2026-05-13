@@ -33,9 +33,9 @@ MIN_CASH_FLOOR_PCT = 0.15   # always keep at least 15% as cash
 
 # Max concurrent positions
 MAX_POSITIONS = {
-    "GREEN":  5,
-    "YELLOW": 3,
-    "RED":    2,
+    "GREEN":  8,      # Optimized: 8 positions
+    "YELLOW": 4,      # Scaled
+    "RED":    2,      # Scaled
 }
 
 # No new BUYs if this many losing positions are open

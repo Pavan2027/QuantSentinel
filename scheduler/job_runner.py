@@ -49,6 +49,12 @@ def run_cycle(paper_trader, risk_manager):
     _cycle_count += 1
     cycle_num = _cycle_count
 
+    # CRITICAL: Reload state from DB before every cycle.
+    # This allows the UI to 'reset' the bot while it's running without the bot 
+    # overwriting the reset with stale in-memory positions.
+    if hasattr(paper_trader, "_load_state"):
+        paper_trader._load_state()
+
     # --- Gate 1: Control flag ---
     status = read_control_flag("BOT_STATUS", default="RUNNING")
     if status == "KILLED":
@@ -62,11 +68,11 @@ def run_cycle(paper_trader, risk_manager):
 
     # --- Gate 2: Market hours ---
     now = datetime.now(IST)
-    '''if not is_signal_window_open(now):
+    if not is_signal_window_open(now):
         market_info = get_market_status()
         log.info(f"Cycle {cycle_num} skipped — market closed. "
                  f"Next open: {market_info['next_open']}")
-        return "MARKET_CLOSED"'''
+        return "MARKET_CLOSED"
 
     log.info(f"{'='*60}")
     log.info(f"Cycle {cycle_num} starting at {now.strftime('%H:%M:%S IST')}")
@@ -77,7 +83,12 @@ def run_cycle(paper_trader, risk_manager):
         log_activity("Loading stock universe...", level="INFO")
         from strategy.universe import get_raw_universe
         risk_state = risk_manager.current_state
-        symbols    = get_raw_universe(risk_state)
+        
+        # Ensure we ALWAYS fetch prices for currently open positions (prevents zombie positions)
+        symbols = set(get_raw_universe(risk_state))
+        for sym in paper_trader.positions.keys():
+            symbols.add(sym)
+        symbols = list(symbols)
 
         # --- Step 2: Price data ---
         log_activity(f"Fetching price data for {len(symbols)} stocks...", level="INFO")
@@ -110,7 +121,8 @@ def run_cycle(paper_trader, risk_manager):
         cache_age_hours = (now_ts - _news_cache_time) / 3600
 
         if not _news_cache or cache_age_hours >= NEWS_REFRESH_HOURS:
-            log_activity(f"Fetching fresh news (cache age: {cache_age_hours:.1f}h)...", level="INFO")
+            age_str = "cache empty" if _news_cache_time == 0.0 else f"cache age: {cache_age_hours:.1f}h"
+            log_activity(f"Fetching fresh news ({age_str})...", level="INFO")
             try:
                 import concurrent.futures
                 from data.news_provider import get_news_for_stock
@@ -201,12 +213,24 @@ def run_cycle(paper_trader, risk_manager):
 
             # Exposure checks
             atr = signals.get("atr_val", price * 0.02)
-            from risk.exposure_limits import MAX_POSITIONS
-            size_pct  = {"GREEN": 0.15, "YELLOW": 0.08, "RED": 0.04}.get(risk_state, 0.12)
-            trade_val = paper_trader.cash * size_pct
-            qty       = max(1, int(trade_val / price))
+            from risk.exposure_limits import MAX_POSITIONS, MIN_CASH_FLOOR_PCT
+            
+            # Dynamic Equal Weight Allocation
+            max_pos = MAX_POSITIONS.get(risk_state, 5)
+            investable_pct = 1.0 - MIN_CASH_FLOOR_PCT
+            target_weight = investable_pct / max_pos
+            trade_val = portfolio_summary["total_value"] * target_weight
+            
+            # Never breach the minimum cash floor
+            available_cash = paper_trader.cash - (paper_trader.initial_capital * MIN_CASH_FLOOR_PCT)
+            if trade_val > available_cash:
+                trade_val = available_cash
+                
+            if trade_val < price:
+                continue
+                
+            qty = int(trade_val / price)
             actual_val = qty * price
-
             checks = validate_new_buy(
                 symbol=sym, trade_value=actual_val,
                 cash=paper_trader.cash,
@@ -230,6 +254,9 @@ def run_cycle(paper_trader, risk_manager):
             )
             if result["success"]:
                 entries_fired += 1
+                # CRITICAL FIX: Update the tracking dictionary to prevent > MAX_POSITIONS bug!
+                positions_dict[sym] = {"qty": qty, "avg_entry_price": price}
+                
                 log_activity(
                     f"✅ BUY {sym}: {qty} @ ₹{price:.2f} | "
                     f"score={score:.3f} | state={risk_state}",
