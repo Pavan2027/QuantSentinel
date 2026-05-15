@@ -23,7 +23,7 @@ UPSTOX_API_SECRET      = os.getenv("UPSTOX_API_SECRET", "")
 TWITTER_BEARER_TOKEN   = os.getenv("TWITTER_BEARER_TOKEN", "")
 NEWSDATA_API_KEY       = os.getenv("NEWSDATA_API_KEY", "")
 MARKETAUX_API_KEY      = os.getenv("MARKETAUX_API_KEY", "")
-
+ALPHA_VANTAGE_API_KEY  = os.getenv("ALPHA_VANTAGE_API_KEY", "")
 
 # =============================================================================
 # TELEGRAM BOTS

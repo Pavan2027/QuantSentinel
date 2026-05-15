@@ -70,22 +70,111 @@ def get_price_data(symbol: str, lookback_days: int = None) -> pd.DataFrame | Non
     end_date   = date.today() + timedelta(days=1)
     start_date = end_date - timedelta(days=lookback_days + 10)  # +10 buffer for weekends/holidays
 
-    log.info(f"Fetching price data: {ticker} ({lookback_days}d)")
-    try:
-        raw = yf.download(
-            tickers=ticker,
-            start=start_date.isoformat(),
-            end=end_date.isoformat(),
-            auto_adjust=True,       # handles splits, dividends, bonuses
-            progress=False,
-            threads=False,
-        )
-    except Exception as e:
-        log.error(f"yfinance download failed for {ticker}: {e}")
-        return None
+    def _fetch_raw_yf(t: str):
+        try:
+            return yf.download(
+                tickers=t,
+                start=start_date.isoformat(),
+                end=end_date.isoformat(),
+                auto_adjust=True,
+                progress=False,
+                threads=False,
+            )
+        except Exception as e:
+            log.error(f"yfinance download failed for {t}: {e}")
+            return None
 
-    if raw is None or raw.empty:
-        log.warning(f"No price data returned for {ticker}")
+    def _fetch_jugaad(t: str):
+        try:
+            from jugaad_data.nse import stock_df
+            sym = t.replace(".NS", "").replace(".BO", "")
+            df = stock_df(symbol=sym, from_date=start_date, to_date=end_date, series="EQ")
+            if df is None or df.empty:
+                return None
+            df = df.rename(columns={
+                'DATE': 'Date', 'OPEN': 'Open', 'HIGH': 'High', 'LOW': 'Low', 'CLOSE': 'Close', 'VOLUME': 'Volume'
+            })
+            df = df.set_index('Date')[['Open', 'High', 'Low', 'Close', 'Volume']].sort_index()
+            for col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+            return df
+        except ImportError:
+            log.warning("jugaad-data not installed. Skipping Tier 3 fallback.")
+            return None
+        except Exception as e:
+            log.error(f"jugaad-data fetch failed for {t}: {e}")
+            return None
+
+    def _fetch_alphavantage(t: str):
+        try:
+            import requests
+            from config.settings import ALPHA_VANTAGE_API_KEY
+            if not ALPHA_VANTAGE_API_KEY:
+                return None
+            
+            sym = t.replace(".NS", ".BSE").replace(".BO", ".BSE")
+            url = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={sym}&outputsize=compact&apikey={ALPHA_VANTAGE_API_KEY}"
+            r = requests.get(url, timeout=10)
+            data = r.json()
+            if "Time Series (Daily)" not in data:
+                return None
+                
+            ts = data["Time Series (Daily)"]
+            df = pd.DataFrame.from_dict(ts, orient="index")
+            df.index = pd.to_datetime(df.index)
+            df = df.rename(columns={"1. open": "Open", "2. high": "High", "3. low": "Low", "4. close": "Close", "5. volume": "Volume"})
+            for col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+            return df.sort_index()
+        except Exception as e:
+            log.error(f"Alpha Vantage fetch failed for {t}: {e}")
+            return None
+
+    def _is_data_glitched(data_df):
+        if data_df is None or data_df.empty:
+            return True
+        check_col = data_df.columns.get_level_values(0) if isinstance(data_df.columns, pd.MultiIndex) else data_df.columns
+        if "Close" in check_col:
+            close_data = data_df.xs("Close", axis=1, level=0) if isinstance(data_df.columns, pd.MultiIndex) else data_df["Close"]
+            last_val = close_data.iloc[-1]
+            if isinstance(last_val, pd.Series):
+                return pd.isna(last_val).any()
+            else:
+                return pd.isna(last_val)
+        return False
+
+    log.info(f"Fetching price data: {ticker} ({lookback_days}d)")
+    
+    # Tier 1: Yahoo Finance (NSE)
+    raw = _fetch_raw_yf(ticker)
+    
+    # Tier 2: Yahoo Finance (BSE)
+    if _is_data_glitched(raw) and ticker.endswith(".NS"):
+        fallback_ticker = ticker.replace(".NS", ".BO")
+        log.warning(f"Tier 1 (yfinance NSE) missing/NaN for {ticker}. Trying Tier 2 (yfinance BSE: {fallback_ticker})...")
+        raw_bo = _fetch_raw_yf(fallback_ticker)
+        if not _is_data_glitched(raw_bo):
+            raw = raw_bo
+            log.info(f"Successfully retrieved Tier 2 BSE data for {ticker}")
+            
+    # Tier 3: Jugaad-Data (NSE Direct Scrape)
+    if _is_data_glitched(raw):
+        log.warning(f"Tier 2 failed for {ticker}. Trying Tier 3 (jugaad-data NSE Direct)...")
+        raw_jg = _fetch_jugaad(ticker)
+        if not _is_data_glitched(raw_jg):
+            raw = raw_jg
+            log.info(f"Successfully retrieved Tier 3 jugaad-data for {ticker}")
+
+    # Tier 4: Alpha Vantage (Official API)
+    if _is_data_glitched(raw):
+        log.warning(f"Tier 3 failed for {ticker}. Trying Tier 4 (Alpha Vantage BSE)...")
+        raw_av = _fetch_alphavantage(ticker)
+        if not _is_data_glitched(raw_av):
+            raw = raw_av
+            log.info(f"Successfully retrieved Tier 4 Alpha Vantage data for {ticker}")
+
+    if _is_data_glitched(raw):
+        log.error(f"All 4 data tiers failed for {ticker}. Aborting fetch.")
         return None
 
     # --- Flatten MultiIndex columns if present ---
