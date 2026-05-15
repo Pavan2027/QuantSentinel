@@ -210,3 +210,9 @@ __marimo__/
 # Tests Folder
 tests/
 reports/
+
+# Database / Local State
+*.db
+*.sqlite
+*.sqlite3
+data/*.db
