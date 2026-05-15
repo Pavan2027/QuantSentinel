@@ -102,6 +102,7 @@ def get_price_data(symbol: str, lookback_days: int = None) -> pd.DataFrame | Non
 
     # --- Clean up ---
     df = df.dropna(how="all")
+    df = df.ffill().dropna(subset=["Close", "Volume"])
     df.index = pd.to_datetime(df.index).tz_localize(None)  # timezone-naive
     df = df.sort_index()
 

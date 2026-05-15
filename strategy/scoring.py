@@ -186,7 +186,7 @@ def get_top_picks(ranked_stocks: list[dict],
     """
     if n is None:
         from risk.exposure_limits import MAX_POSITIONS
-        n = MAX_POSITIONS.get(risk_state, 5)
+        n = MAX_POSITIONS.get(risk_state, 8)
 
     threshold = BUY_THRESHOLD[risk_state]
     eligible = [s for s in ranked_stocks if s["score"] >= threshold]

@@ -5,13 +5,13 @@ Defines the tradeable stock universe for each risk state.
 
 Tiers:
   - NIFTY_100:   100 large-cap stocks (NIFTY 50 + NIFTY Next 50)
-  - MIDCAP_100:  100 midcap stocks from NIFTY Midcap 150
-  - SMALLCAP_50: 50 curated smallcaps from NIFTY Smallcap 250
+  - MIDCAP_150:  150 midcap stocks from NIFTY Midcap 150
+  - SMALLCAP_100: 100 curated smallcaps from NIFTY Smallcap 250
 
 Risk-state rules:
   - GREEN:  All 250 stocks
-  - YELLOW: NIFTY 100 + top 50 midcaps (150)
-  - RED:    NIFTY 100 only (100)
+  - YELLOW: NIFTY 100 + top 125 midcaps (225)
+  - RED:    NIFTY 100 + top 50 midcaps (150)
 
 All symbols are bare NSE tickers (no .NS suffix — price_provider adds it).
 """

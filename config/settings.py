@@ -99,8 +99,8 @@ SLIPPAGE_PCT            = 0.0005     # 0.05% assumed slippage per trade
 # These gate transitions between GREEN / YELLOW / RED risk states
 DRAWDOWN_YELLOW_THRESH  = 0.12   # 12% drawdown triggers YELLOW
 DRAWDOWN_RED_THRESH     = 0.20   # 20% drawdown triggers RED
-CASH_YELLOW_THRESH      = 0.40   # cash < 40% of starting capital → YELLOW
-CASH_RED_THRESH         = 0.20   # cash < 20% of starting capital → RED
+CASH_YELLOW_THRESH      = 0.20   # cash < 20% of starting capital → YELLOW
+CASH_RED_THRESH         = 0.05   # cash < 5% of starting capital → RED
 
 
 # =============================================================================
